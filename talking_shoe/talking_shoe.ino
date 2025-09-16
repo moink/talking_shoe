@@ -4,10 +4,20 @@
 #include "Arduino.h"
 #include "DFRobotDFPlayerMini.h"
 
-#define LDR_PIN 34
+// CHARACTER SELECT BUTTON
+#define NUMBER_OF_CHARACTERS 4   
+#define BUTTON_PIN 25
+#define BUTTON_DELAY 200
+
+// LIGHT DETECTOR
+#define LIGHT_DETECTOR_PIN 34
 #define LIGHT_THRESHOLD 20   
+
+// ACCELEROMETER
 #define ACCELEROMETER_DELAY 100 //ms
 #define MOTION_THRESHOLD 0.3
+
+// MP3 PLAYER
 #define PLAYER_VOLUME 20
 #define FPSerial Serial1
 #define MP3_LENGTH 3000
@@ -21,9 +31,12 @@ enum ShoeState {
 
 Adafruit_ADXL345_Unified ACCELEROMETER = Adafruit_ADXL345_Unified(12345);
 DFRobotDFPlayerMini myDFPlayer;
+volatile int character_selected = 0;
+volatile bool buttonPressed = false;
 
 void setup(){
   setup_console();
+  setup_character_select_button();
   setup_accelerometer();
   setup_mp3_player();
 }
@@ -32,9 +45,17 @@ void setup_console() {
   Serial.begin(115200);
 }
 
+void IRAM_ATTR handle_character_button_press() {
+  buttonPressed = true;
+}
+
+void setup_character_select_button() {
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), handle_character_button_press, FALLING);
+}
+
 void setup_accelerometer(void) {
   Wire.begin(23, 19);
-  Serial.begin(115200);
   Serial.println("Accelerometer Test\n");
   if (!ACCELEROMETER.begin()) {
     Serial.println("No accelerometer detected. Check your wiring!");
@@ -53,6 +74,17 @@ void setup_mp3_player() {
 
 void loop() {
   static unsigned long timer = millis();
+  static int last_character_selected = -1;
+  static unsigned long lastPress = 0;
+  if (buttonPressed) {
+    buttonPressed = false;
+    unsigned long now = millis();
+    if (now - lastPress > BUTTON_DELAY) {
+      character_selected = (character_selected + 1) % NUMBER_OF_CHARACTERS;
+      lastPress = now;
+      Serial.printf("Button count: %d\n", character_selected);
+    }
+  }
   if (millis() - timer > MP3_LENGTH){
     timer = millis();
     ShoeState shoe_state = get_shoe_state();
@@ -78,8 +110,8 @@ void loop() {
 }
 
 ShoeState get_shoe_state() {
-  boolean light = is_it_light();
-  boolean moving = is_it_moving();
+  bool light = is_it_light();
+  bool moving = is_it_moving();
   if (light && moving) return LIGHT_MOVING;
   if (!light && moving) return DARK_MOVING;
   if (light && !moving) return LIGHT_STATIONARY;
@@ -87,13 +119,13 @@ ShoeState get_shoe_state() {
 }
 
 
-boolean is_it_light() {
-  int sensorValue = analogRead(LDR_PIN); // Value from 0 (dark) to 4095 (bright)
+bool is_it_light() {
+  int sensorValue = analogRead(LIGHT_DETECTOR_PIN); // Value from 0 (dark) to 4095 (bright)
   return sensorValue > LIGHT_THRESHOLD;
 }
 
 
-boolean is_it_moving() {
+bool is_it_moving() {
   sensors_event_t event; 
   ACCELEROMETER.getEvent(&event);
   float first_x = event.acceleration.x;
@@ -125,13 +157,10 @@ boolean is_it_moving() {
 // check if momentary switch is pressed
 
 // things we need
-// - battery
-// - momentary switch
 // - more jumpers
 
 // hardware to do
 // - install battery
-// - connect momentary switch between a lolin pin & ground
 // - install into a shoe
 
 // recording
