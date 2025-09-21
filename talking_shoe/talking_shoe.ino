@@ -18,11 +18,12 @@ constexpr uint16_t ACCELEROMETER_DELAY = 100; // ms
 constexpr float MOTION_THRESHOLD = 0.3f;
 
 // MP3 PLAYER
-constexpr uint8_t PLAYER_VOLUME = 20; // 1 to 30
+constexpr uint8_t PLAYER_VOLUME = 25; // 1 to 30
 #define FPSerial Serial1   
 
 // ARRAY SIZING
 constexpr uint8_t MAX_TRACKS_PER_STATE = 6;
+constexpr uint16_t MAX_TRACK_LENGTH_MS = 13000;
 
 enum class SensorState : uint8_t {
     LIGHT_STATIONARY,
@@ -242,8 +243,8 @@ unsigned long play_random_track(uint8_t character, Activity activity) {
     StateTracks &state_tracks = track_table[character][activity_index];
     uint8_t track_idx = random(state_tracks.number_of_tracks);
     Track &selected_track = state_tracks.tracks[track_idx];
-    Serial.printf("Playing character %d, activity %d, track %d\n",
-              character, activity_index, selected_track.track_number);
+    Serial.printf("Playing character %d, activity %d, track %d, length %d\n",
+              character, activity_index, selected_track.track_number, selected_track.length_ms);
     myDFPlayer.play(selected_track.track_number);
     return selected_track.length_ms;
 }
